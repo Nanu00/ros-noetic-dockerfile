@@ -12,8 +12,9 @@ else:
     COMPOSE_FILE = "docker-compose.yml"
 
 def build(info, workspace_path):
+    os.chdir(workspace_path)
     subprocess.run(f"docker-compose -f {COMPOSE_FILE} build".split())
-    info[os.path.abspath(workspace_path)] = False
+    info.append(os.path.abspath(workspace_path))
 
 def list(info, running):
     print(f"Currently active workspaces: {len(info)}")
@@ -23,6 +24,62 @@ def list(info, running):
         else:
             r = "Not running"
         print(f"{n+1} - {w} - {r}")
+
+def run(info, running, workspace):
+    if workspace.isdecimal():
+        workspace = int(workspace)
+        if workspace > len(info):
+            print(f"Workspace #{workspace} does not exist!", file=sys.stderr)
+            exit(1)
+        workspace = info[workspace-1]
+    else:
+        workspace = os.path.abspath(workspace)
+
+    if workspace not in info:
+        print(f"Workspace \"{workspace}\" does not exist!", file=sys.stderr)
+        exit(1)
+
+
+    os.chdir(workspace)
+    dc = subprocess.Popen(f"docker-compose -f {COMPOSE_FILE} up -d --no-build".split(), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
+    rcode = dc.wait()
+    if rcode != 0:
+        print(f"Docker error:\n{dc.stderr}", file=sys.stderr)
+        exit(1)
+
+    subprocess.run(["xhost", "+local:`docker inspect --format='{{ .Config.Hostname }}' $(docker ps -l -q)`"])
+
+    running.append(workspace)
+
+def stop(info, running, workspace):
+    if workspace.isdecimal():
+        workspace = int(workspace)
+        if workspace > len(info):
+            print(f"Workspace #{workspace} does not exist!", file=sys.stderr)
+            exit(1)
+        workspace = info[workspace-1]
+    else:
+        workspace = os.path.abspath(workspace)
+
+    if workspace not in info:
+        print(f"Workspace \"{workspace}\" does not exist!", file=sys.stderr)
+        exit(1)
+
+    if workspace not in running:
+        print(f"Workspace \"{workspace}\" is not currently running", file=sys.stderr)
+        exit(1)
+
+
+    os.chdir(workspace)
+    dc = subprocess.Popen(f"docker-compose -f {COMPOSE_FILE} down".split(), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
+    rcode = dc.wait()
+    if rcode != 0:
+        print(f"Docker error:\n{dc.stderr}", file=sys.stderr)
+        exit(1)
+
+    running.remove(workspace)
 
 def rm(info, workspace):
     if workspace.isdecimal():
@@ -58,6 +115,9 @@ if __name__ == "__main__":
     build_parser = subparsers.add_parser("run", help="Run a docker container for a workspace")
     build_parser.add_argument("workspace", metavar="WORKSPACE", help="Path or number to workspace", default='.')
 
+    build_parser = subparsers.add_parser("stop", help="Stop a docker container for a workspace")
+    build_parser.add_argument("workspace", metavar="WORKSPACE", help="Path or number to workspace", default='.')
+
     build_parser = subparsers.add_parser("list", help="List ros-docker workspaces")
 
     args = parser.parse_args()
@@ -81,7 +141,7 @@ if __name__ == "__main__":
         info_file.close()
     else:
         info_file = open(INFO_FILE_PATH, 'x+')
-        json.dump({}, info_file)
+        json.dump([], info_file)
         info_file.close()
 
     running = []
@@ -91,14 +151,16 @@ if __name__ == "__main__":
         running_file.close()
     else:
         running_file = open(RUNNING_FILE_PATH, 'x+')
-        json.dump({}, running_file)
+        json.dump([], running_file)
         running_file.close()
 
     match args.subcommand:
         case "build":
             build(info, args.path)
         case "run":
-            pass
+            run(info, running, args.workspace)
+        case "stop":
+            stop(info, running, args.workspace)
         case "list":
             list(info, running)
         case "rm":
@@ -107,6 +169,10 @@ if __name__ == "__main__":
     info_file = open(INFO_FILE_PATH, 'w')
     json.dump(info, info_file)
     info_file.close()
+
+    running_file = open(RUNNING_FILE_PATH, 'w')
+    json.dump(running, running_file)
+    running_file.close()
 
     lock_file.close()
     info_file.close()

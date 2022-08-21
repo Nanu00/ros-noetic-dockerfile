@@ -1,6 +1,5 @@
 #!/bin/python3
-from os.path import exists, isfile
-import subprocess, argparse, json, os, sys
+import subprocess, argparse, json, os, sys, pwd, urllib, shutil
 
 ps = subprocess.Popen(('lshw', '-C', 'display'), stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
 output = subprocess.check_output(('grep', 'vendor'), stdin=ps.stdout, encoding="UTF-8")
@@ -11,10 +10,30 @@ if "nvidia" in output.lower():
 else:
     COMPOSE_FILE = "docker-compose.yml"
 
-def build(info, workspace_path):
+def new(path):
+    workspace_path = os.path.abspath(path)
+    if not os.path.exists(workspace_path):
+        os.makedirs(workspace_path)
+    elif os.path.isdir(workspace_path):
+        pass
+    else:
+        print("Error creating workspace", file=sys.stderr)
+        exit(1)
+
     os.chdir(workspace_path)
-    subprocess.run(f"docker-compose -f {COMPOSE_FILE} build".split())
-    info.append(os.path.abspath(workspace_path))
+
+    with urllib.request.urlopen(f"https://raw.githubusercontent.com/Nanu00/ros-noetic-dockerfile/main/{COMPOSE_FILE}") as response, open(COMPOSE_FILE, 'wb') as out_file:
+        shutil.copyfileobj(response, out_file)
+    with urllib.request.urlopen("https://raw.githubusercontent.com/Nanu00/ros-noetic-dockerfile/main/Dockerfile") as response, open("Dockerfile", 'wb') as out_file:
+        shutil.copyfileobj(response, out_file)
+
+def build(info, workspace_path):
+    workspace_path = os.path.abspath(workspace_path)
+    os.chdir(workspace_path)
+    user = os.environ['USER']
+    subprocess.run(f"docker-compose -f {COMPOSE_FILE} build --build-arg UID={pwd.getpwnam(user).pw_uid} --build-arg GID={pwd.getpwnam(user).pw_gid} --build-arg UNAME={user}".split())
+    if workspace_path not in info:
+        info.append(workspace_path)
 
 def list(info, running):
     print(f"Currently active workspaces: {len(info)}")
@@ -85,11 +104,11 @@ def rm(info, workspace):
     if workspace.isdecimal():
         workspace = int(workspace)
         if workspace > len(info):
-            k = info.pop(workspace)
-            print(f"Workspace \"{k}\" removed")
-        else:
             print(f"Workspace #{workspace} does not exist!", file=sys.stderr)
             exit(1)
+        else:
+            k = info.pop(workspace-1)
+            print(f"Workspace \"{k}\" removed")
     else:
         if workspace in info.keys():
             info.remove(workspace)
@@ -105,6 +124,9 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description="Manage docker containers for ROS")
     subparsers = parser.add_subparsers(dest="subcommand")
+
+    build_parser = subparsers.add_parser("new", help="Set up a workspace")
+    build_parser.add_argument("path", metavar="PATH", help="Path to the workspace", default='.')
 
     build_parser = subparsers.add_parser("build", help="Build a docker container for a workspace")
     build_parser.add_argument("path", metavar="PATH", help="Path to the workspace", default='.')

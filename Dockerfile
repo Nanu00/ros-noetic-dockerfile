@@ -1,5 +1,9 @@
 FROM ros:noetic
-# Setup all the keys and install packages which need root access.
+
+ARG UNAME
+ARG UID
+ARG GID
+
 USER root
 
 RUN . /opt/ros/noetic/setup.sh && \
@@ -27,28 +31,16 @@ RUN sudo apt-get install -y ros-noetic-joint-limits-interface
 RUN sudo apt-get install -y ros-noetic-ros-control
 RUN sudo apt-get install -y ros-noetic-rviz
 RUN sudo apt-get install -y ros-noetic-xacro
+RUN sudo apt-get install -y ros-noetic-desktop-full
 
 RUN wget https://raw.githubusercontent.com/ros/rosdistro/master/ros.asc -O - | sudo apt-key add - && \
     sh -c 'echo "deb [arch=$(dpkg --print-architecture)]  http://packages.ros.org/ros/ubuntu $(lsb_release -sc) main" > /etc/apt/sources.list.d/ros-latest.list'
 
-
-# #Setup agv USER
-# RUN groupadd -g 1000 agv && \
-#     useradd -d /home/agv -s /bin/bash -m agv -u 1000 -g 1000 && \
-#     usermod -aG sudo agv && \
-#     echo '%sudo ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers
-
-# USER agv
-ARG workspace="agv"
-RUN mkdir -p /home/$workspace/src
-ENV HOME /home/$workspace
-WORKDIR /home/$workspace/
-
-
-#Setup dependencies
-
-RUN sudo apt-get update &&\
-    rosdep update &&\
-    rosdep install --from-paths src --ignore-src -y 
+RUN groupadd -g $GID -o $UNAME
+RUN useradd -m -u $UID -g $GID -o -s /bin/bash $UNAME
+RUN usermod -aG sudo $UNAME
+RUN echo '%sudo ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers
+USER $UNAME
+WORKDIR /home/$UNAME
 
 RUN echo 'source /opt/ros/noetic/setup.bash' >> ~/.bashrc

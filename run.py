@@ -1,5 +1,5 @@
 #!/bin/python3
-import subprocess, argparse, json, os, sys, pwd, urllib, shutil
+import subprocess, argparse, json, os, sys, pwd, urllib.request, shutil
 
 ps = subprocess.Popen(('lshw', '-C', 'display'), stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
 output = subprocess.check_output(('grep', 'vendor'), stdin=ps.stdout, encoding="UTF-8")
@@ -26,6 +26,8 @@ def new(path):
         shutil.copyfileobj(response, out_file)
     with urllib.request.urlopen("https://raw.githubusercontent.com/Nanu00/ros-noetic-dockerfile/main/Dockerfile") as response, open("Dockerfile", 'wb') as out_file:
         shutil.copyfileobj(response, out_file)
+
+    print(f"Downloaded dockerfiles to {workspace_path}")
 
 def build(info, workspace_path):
     workspace_path = os.path.abspath(workspace_path)
@@ -187,6 +189,8 @@ if __name__ == "__main__":
             list(info, running)
         case "rm":
             rm(info, args.workspace)
+        case "new":
+            new(args.path)
 
     info_file = open(INFO_FILE_PATH, 'w')
     json.dump(info, info_file)

@@ -1,0 +1,18 @@
+services:
+    ros_noetic:
+        image: noetic-ros-base:latest
+        stdin_open: true
+        tty: true
+        build: .
+        user: $USER
+        privileged: true
+        environment:
+            - DISPLAY=${DISPLAY}
+            - QT_X11_NO_MITSHM=1
+            - NVIDIA_VISIBLE_DEVICES=all
+            - NVIDIA_DRIVER_CAPABILITIES=all
+            - GAZEBO_MASTER_URI=http://127.0.0.1:11345
+        volumes:
+            - /tmp/.X11-unix:/tmp/.X11-unix:rw
+            - ./workspace:/home/$USER/workspace
+        network_mode: host

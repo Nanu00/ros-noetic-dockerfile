@@ -22,6 +22,12 @@ def new(path):
 
     os.chdir(workspace_path)
 
+    user = os.environ['USER']
+    with open(".env", "w") as env_file:
+        env_file.write(f"UID={pwd.getpwnam(user).pw_uid}\n")
+        env_file.write(f"GID={pwd.getpwnam(user).pw_gid}\n")
+        env_file.write("HOSTNAME=ros-container\n")
+
     with urllib.request.urlopen(f"https://raw.githubusercontent.com/Nanu00/ros-noetic-dockerfile/main/{COMPOSE_FILE}") as response, open(COMPOSE_FILE, 'wb') as out_file:
         shutil.copyfileobj(response, out_file)
     with urllib.request.urlopen("https://raw.githubusercontent.com/Nanu00/ros-noetic-dockerfile/main/Dockerfile") as response, open("Dockerfile", 'wb') as out_file:

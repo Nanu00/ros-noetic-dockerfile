@@ -1,5 +1,8 @@
 services:
     ros_noetic:
+        hostname: ${HOSTNAME}
+        extra_hosts:
+            - "${HOSTNAME}:127.0.0.1"
         image: noetic-ros-base:latest
         stdin_open: true
         tty: true

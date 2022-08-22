@@ -10,6 +10,8 @@ if "nvidia" in output.lower():
 else:
     COMPOSE_FILE = "docker-compose.yml"
 
+EXIT_CODE = 0
+
 def new(path):
     workspace_path = os.path.abspath(path)
     if not os.path.exists(workspace_path):
@@ -18,7 +20,8 @@ def new(path):
         pass
     else:
         print("Error creating workspace", file=sys.stderr)
-        exit(1)
+        EXIT_CODE=1
+        return
 
     os.chdir(workspace_path)
 
@@ -57,14 +60,16 @@ def run(info, running, workspace):
         workspace = int(workspace)
         if workspace > len(info):
             print(f"Workspace #{workspace} does not exist!", file=sys.stderr)
-            exit(1)
+            EXIT_CODE=1
+            return
         workspace = info[workspace-1]
     else:
         workspace = os.path.abspath(workspace)
 
     if workspace not in info:
         print(f"Workspace \"{workspace}\" does not exist!", file=sys.stderr)
-        exit(1)
+        EXIT_CODE=1
+        return
 
 
     os.chdir(workspace)
@@ -73,7 +78,8 @@ def run(info, running, workspace):
     rcode = dc.wait()
     if rcode != 0:
         print(f"Docker error:\n{dc.stderr}", file=sys.stderr)
-        exit(1)
+        EXIT_CODE=1
+        return
 
     subprocess.run(["xhost", "+local:`docker inspect --format='{{ .Config.Hostname }}' $(docker ps -l -q)`"])
 
@@ -84,19 +90,21 @@ def stop(info, running, workspace):
         workspace = int(workspace)
         if workspace > len(info):
             print(f"Workspace #{workspace} does not exist!", file=sys.stderr)
-            exit(1)
+            EXIT_CODE=1
+            return
         workspace = info[workspace-1]
     else:
         workspace = os.path.abspath(workspace)
 
     if workspace not in info:
         print(f"Workspace \"{workspace}\" does not exist!", file=sys.stderr)
-        exit(1)
+        EXIT_CODE=1
+        return
 
     if workspace not in running:
         print(f"Workspace \"{workspace}\" is not currently running", file=sys.stderr)
-        exit(1)
-
+        EXIT_CODE=1
+        return
 
     os.chdir(workspace)
     dc = subprocess.Popen(f"docker-compose -f {COMPOSE_FILE} down".split(), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -104,7 +112,8 @@ def stop(info, running, workspace):
     rcode = dc.wait()
     if rcode != 0:
         print(f"Docker error:\n{dc.stderr}", file=sys.stderr)
-        exit(1)
+        EXIT_CODE=1
+        return
 
     running.remove(workspace)
 
@@ -113,7 +122,8 @@ def rm(info, workspace):
         workspace = int(workspace)
         if workspace > len(info):
             print(f"Workspace #{workspace} does not exist!", file=sys.stderr)
-            exit(1)
+            EXIT_CODE=1
+            return
         else:
             k = info.pop(workspace-1)
             print(f"Workspace \"{k}\" removed")
@@ -123,7 +133,35 @@ def rm(info, workspace):
             print(f"Workspace \"{workspace}\" removed")
         else:
             print(f"Workspace \"{workspace}\" does not exist!", file=sys.stderr)
-            exit(1)
+            EXIT_CODE=1
+            return
+
+def shell(info, running, workspace):
+    if workspace.isdecimal():
+        workspace = int(workspace)
+        if workspace > len(info):
+            print(f"Workspace #{workspace} does not exist!", file=sys.stderr)
+            EXIT_CODE=1
+            return
+        workspace = info[workspace-1]
+    else:
+        workspace = os.path.abspath(workspace)
+
+    if workspace not in info:
+        print(f"Workspace \"{workspace}\" does not exist!", file=sys.stderr)
+        EXIT_CODE=1
+        return
+
+    if workspace not in running:
+        print(f"Workspace \"{workspace}\" is not currently running", file=sys.stderr)
+        EXIT_CODE=1
+        return
+
+    os.chdir(workspace)
+    f = os.fork()
+    if f:
+        os.execvp("docker-compose", f"docker compose -f {COMPOSE_FILE} exec -i ros_noetic /bin/bash".split())
+    return
 
 if __name__ == "__main__":
     LOCK_FILE_PATH = "/tmp/ros-docker.lock"
@@ -146,6 +184,9 @@ if __name__ == "__main__":
     build_parser.add_argument("workspace", metavar="WORKSPACE", help="Path or number to workspace", default='.')
 
     build_parser = subparsers.add_parser("stop", help="Stop a docker container for a workspace")
+    build_parser.add_argument("workspace", metavar="WORKSPACE", help="Path or number to workspace", default='.')
+
+    build_parser = subparsers.add_parser("shell", help="Start the shell for a workspace")
     build_parser.add_argument("workspace", metavar="WORKSPACE", help="Path or number to workspace", default='.')
 
     build_parser = subparsers.add_parser("list", help="List ros-docker workspaces")
@@ -197,6 +238,8 @@ if __name__ == "__main__":
             rm(info, args.workspace)
         case "new":
             new(args.path)
+        case "shell":
+            shell(info, running, args.workspace)
 
     info_file = open(INFO_FILE_PATH, 'w')
     json.dump(info, info_file)
@@ -209,3 +252,4 @@ if __name__ == "__main__":
     lock_file.close()
     info_file.close()
     os.remove(LOCK_FILE_PATH)
+    exit(EXIT_CODE)

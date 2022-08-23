@@ -3,7 +3,6 @@ FROM ros:noetic
 ARG UNAME
 ARG UID
 ARG GID
-
 USER root
 
 RUN . /opt/ros/noetic/setup.sh && \
@@ -32,15 +31,44 @@ RUN sudo apt-get install -y ros-noetic-ros-control
 RUN sudo apt-get install -y ros-noetic-rviz
 RUN sudo apt-get install -y ros-noetic-xacro
 RUN sudo apt-get install -y ros-noetic-desktop-full
-
 RUN wget https://raw.githubusercontent.com/ros/rosdistro/master/ros.asc -O - | sudo apt-key add - && \
     sh -c 'echo "deb [arch=$(dpkg --print-architecture)]  http://packages.ros.org/ros/ubuntu $(lsb_release -sc) main" > /etc/apt/sources.list.d/ros-latest.list'
 
+RUN sudo apt-get install -y zsh zsh-autosuggestions zsh-syntax-highlighting git
+
+RUN sudo apt-get install -y software-properties-common
+RUN sudo add-apt-repository ppa:neovim-ppa/stable
+RUN sudo apt-get update
+RUN sudo apt-get install -y neovim
+RUN sudo apt-get install -y python-dev python-pip-whl python3-dev python3-pip
+
+
+RUN sudo update-alternatives --install /usr/bin/vi vi /usr/bin/nvim 60
+RUN sudo update-alternatives --config vi
+RUN sudo update-alternatives --install /usr/bin/vim vim /usr/bin/nvim 60
+RUN sudo update-alternatives --config vim
+RUN sudo update-alternatives --install /usr/bin/editor editor /usr/bin/nvim 60
+RUN sudo update-alternatives --config editor
+
 RUN groupadd -g $GID -o $UNAME
-RUN useradd -m -u $UID -g $GID -o -s /bin/bash $UNAME
+RUN useradd -m -u $UID -g $GID -o -s /bin/zsh $UNAME
 RUN usermod -aG sudo $UNAME
 RUN echo '%sudo ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers
+
 USER $UNAME
+
 WORKDIR /home/$UNAME
 
-RUN echo 'source /opt/ros/noetic/setup.bash' >> ~/.bashrc
+RUN wget https://starship.rs/install.sh
+RUN chmod +x install.sh
+RUN sudo ./install.sh --yes
+RUN rm install.sh
+RUN echo eval \"\$\(starship init zsh\)\" >> ~/.zshrc
+RUN mkdir ~/.config && touch ~/.config/starship.toml
+RUN starship preset plain-text-symbols > ~/.config/starship.toml
+
+RUN git clone https://github.com/Nanu00/nvim-config.git ~/.config/nvim
+RUN nvim --headless +q
+RUN nvim --headless -c 'autocmd User PackerComplete quitall' -c 'PackerSync'
+
+RUN echo 'source /opt/ros/noetic/setup.zsh' >> ~/.zshrc

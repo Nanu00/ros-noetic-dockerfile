@@ -160,7 +160,9 @@ def shell(info, running, workspace):
     os.chdir(workspace)
     f = os.fork()
     if f:
-        os.execvp("docker-compose", f"docker compose -f {COMPOSE_FILE} exec -i ros_noetic \"$SHELL\"".split())
+        user = os.environ['USER']
+        shell = subprocess.check_output(f"docker compose -f {COMPOSE_FILE} exec -it ros_noetic grep {user} /etc/passwd ".split(), encoding="UTF-8").split(':')[-1].strip()
+        os.execvp("docker-compose", f"docker compose -f {COMPOSE_FILE} exec -it ros_noetic {shell}".split())
     return
 
 if __name__ == "__main__":

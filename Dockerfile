@@ -67,6 +67,9 @@ RUN echo eval \"\$\(starship init zsh\)\" >> ~/.zshrc
 RUN mkdir ~/.config && touch ~/.config/starship.toml
 RUN starship preset plain-text-symbols > ~/.config/starship.toml
 
+RUN echo source /usr/share/zsh-autosuggestions/zsh-autosuggestions.zsh >> ~/.zshrc
+RUN echo source /usr/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh >> ~/.zshrc
+
 RUN git clone https://github.com/Nanu00/nvim-config.git ~/.config/nvim
 RUN nvim --headless +q
 RUN nvim --headless -c 'autocmd User PackerComplete quitall' -c 'PackerSync'

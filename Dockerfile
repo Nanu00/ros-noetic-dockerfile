@@ -31,6 +31,9 @@ RUN sudo apt-get install -y ros-noetic-ros-control
 RUN sudo apt-get install -y ros-noetic-rviz
 RUN sudo apt-get install -y ros-noetic-xacro
 RUN sudo apt-get install -y ros-noetic-desktop-full
+RUN sudo apt-get install -y ros-noetic-turtlebot3-gazebo
+RUN sudo apt-get install -y ros-noetic-joy
+RUN sudo apt-get install -y ros-noetic-rosserial
 RUN wget https://raw.githubusercontent.com/ros/rosdistro/master/ros.asc -O - | sudo apt-key add -
 RUN sudo sh -c 'echo "deb [arch=$(dpkg --print-architecture)]  http://packages.ros.org/ros/ubuntu $(lsb_release -sc) main" > /etc/apt/sources.list.d/ros-latest.list'
 
@@ -43,7 +46,7 @@ RUN sudo add-apt-repository ppa:neovim-ppa/stable
 RUN sudo apt-get update
 RUN sudo apt-get install -y neovim
 RUN sudo apt-get install -y python-dev python-pip-whl python3-dev python3-pip
-RUN sudo apt-get install curl
+RUN sudo apt-get install -y curl
 
 RUN sudo update-alternatives --install /usr/bin/vi vi /usr/bin/nvim 60
 RUN sudo update-alternatives --config vi
@@ -78,3 +81,4 @@ RUN nvim --headless +q
 RUN nvim --headless -c 'autocmd User PackerComplete quitall' -c 'PackerSync'
 
 RUN echo 'source /opt/ros/noetic/setup.zsh' >> ~/.zshrc
+RUN echo 'source ~/workspace/devel/setup.zsh' >> ~/.zshrc
